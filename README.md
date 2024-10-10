@@ -15,7 +15,7 @@ The objective of this program is to receive a URL to a YouTube video and produce
      git clone https://github.com/OwenDiBacco/Convert-YouTube-URL-To-Transcript.git`
      ```
      
-2. Make The Required pip Installations < br / >
+2. Make The Required pip Installations <br/>
    a. In the terminal of the ```Takedown and Transcript.py``` file, paste these installations: ```pip install pytubefix moviepy SpeechRecognition pydub```
 
 ## Running The Application

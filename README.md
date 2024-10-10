@@ -7,11 +7,11 @@ The objective of this program is to receive a URL to a YouTube video and produce
 1. Clone the Repository
   a. Go to your intended directory in your Command Prompt
     ```bash
-    cd Downloads/[Your Directory]`
+    cd Downloads/[Your Directory]
     ```
     
   b. Paste this command:
-     ```bash
+     ```
      git clone https://github.com/OwenDiBacco/Convert-YouTube-URL-To-Transcript.git`
      ```
      

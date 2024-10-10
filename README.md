@@ -1,19 +1,22 @@
 # YouTube Video Transcript Generator
 
-## Table of Contents
-- [Objective](#objective)
-- [Installations](#installations)
-  - [Clone the Repository](#clone-the-repository)
-  - [Make the Required pip Installations](#make-the-required-pip-installations)
-- [Running the Application](#running-the-application)
-
 ## Objective
 The objective of this program is to receive a URL to a YouTube video and produce a text transcript of the audio.
 
 ## Installations
+1. Clone the Repository
+  a. Go to your intended directory in your Command Prompt
+    ```bash
+    cd Downloads/[Your Directory]`
+  b. Paste this command:
+     ```bash
+     git clone https://github.com/OwenDiBacco/Convert-YouTube-URL-To-Transcript.git
+     
+2. Make The Required pip Installations
+   a. In the terminal of the “Takedown and Transcript.py” file, paste these installations: “pip install pytubefix moviepy SpeechRecognition pydub”
 
-### Clone the Repository
-1. Go to your intended directory in your Command Prompt (e.g., `cd Downloads/[Your Directory]`).
-2. Paste this command:
-   ```bash
-   git clone https://github.com/OwenDiBacco/Convert-YouTube-URL-To-Transcript.git
+## Running The Application
+
+1. The only requirement to run the application is to place your YouTube video url as the ‘video_url’ parameter in the ‘get_transcript_from_youtube_url’ function. 
+
+  

@@ -11,8 +11,9 @@ from pathlib import Path
 def download_YouTube_mp4(video_url):
     yt = YouTube(video_url, on_progress_callback = on_progress)
     video_stream = yt.streams.get_highest_resolution()
+    video_name = yt.title
     file_path = video_stream.download()
-    return file_path
+    return video_name, file_path
 
 
 def convert_mp4_to_wav(file_path, output_path):
@@ -58,6 +59,10 @@ def convert_wav_to_text(file_path, output_path):
     final_text = ''.join(chunk_text)
     return final_text
 
+def write_transcript_to_file(text, video_name):
+    with open(os.path.join(video_name + ".txt"), "w") as txt_file:
+        txt_file.write(text)
+
 
 def delete_individual_variables(arr):
     for a in arr:
@@ -80,9 +85,10 @@ def get_transcript_from_youtube_url(video_url='https://www.youtube.com/watch?v=p
     output_path = f'.\\{output_path_id}'
     current_dir = Path.cwd()
     delete_dir = os.path.join(current_dir, output_path_id)
-    file_path = download_YouTube_mp4(video_url)
+    video_name, file_path = download_YouTube_mp4(video_url)
     wav_file_path = convert_mp4_to_wav(file_path, output_path)
     text = convert_wav_to_text(wav_file_path, output_path)
+    write_transcript_to_file(text, video_name)
     delete_individual_variables([file_path, wav_file_path, output_path])
     delete_created_files(current_dir, delete_dir)
 

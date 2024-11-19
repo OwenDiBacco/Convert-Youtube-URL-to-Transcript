@@ -1,18 +1,93 @@
 import os
 import uuid
+import shutil
 from pytubefix import YouTube
 from pytubefix.cli import on_progress
+import tkinter as tk
 import moviepy.editor as mp
+from pathlib import Path
 import speech_recognition as sr
+from pytube import Playlist
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
-from pathlib import Path
+from urllib.parse import urlparse, parse_qs
+from concurrent.futures import ThreadPoolExecutor
 
-def download_YouTube_mp4(video_url):
+class App:
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title("YouTube URL Input")
+
+        label = tk.Label(self.root, text="Enter YouTube Video or Playlist URL:", font=("Arial", 14))
+        label.pack(pady=10)
+
+        self.url_entry = tk.Entry(self.root, width=50, font=("Arial", 12))
+        self.url_entry.pack(pady=10)
+
+        submit_button = tk.Button(self.root, text="Submit", font=("Arial", 12), command=self.get_url)
+        submit_button.pack(pady=20)
+
+        self.root.mainloop()
+
+    def get_url(self):
+        self.text = self.url_entry.get()
+        self.root.destroy()
+        
+
+def validate_link(video_url):
+    parsed_url = urlparse(video_url)
+    # path: specifies the specific location or resource being accessed
+    # netloc: url component that specifies the domain name or ip addess 
+    if parsed_url.netloc not in ['www.youtube.com', 'youtube.com', 'm.youtube.com', 'youtu.be']:
+        return None
+    
+    # query: contains the video id
+    query_params = parse_qs(parsed_url.query)
+    # search for 'list' needs to be first because both can be playing ('v')
+    if 'list' in query_params: # check for playlist
+        return loop_through_playlist
+    
+    if 'v' in query_params: # check for video
+            return process_file
+
+
+def loop_through_playlist(playlist_url, output_path, _):
+    playlist = Playlist(playlist_url) # an array with all the videos from a playlist 
+    def wrapper(video_url): 
+        return process_file(video_url, output_path, True) 
+    
+    with ThreadPoolExecutor() as executor: # ThreadPoolExecutor provides ways to manage multiple threads concurrently
+        results = list(executor.map(wrapper, playlist)) # creates a list of concurrent threads
+
+
+def process_file(video_url, output_path, isPlaylist):
+    if isPlaylist:
+        # get the specific index from the playlist
+        # index = find_playlist_index(video_url)
+        pass 
+    
+    video_name, file_path = download_YouTube_mp4(video_url, output_path)
+    wav_file_path = convert_mp4_to_wav(file_path, output_path)
+    text = convert_wav_to_text(wav_file_path, output_path)
+    write_transcript_to_file(text, video_name, output_path)
+    delete_created_files(output_path)
+
+
+def find_playlist_index(playlist_url):
+    parsed_url = urlparse(playlist_url)
+    query_params = parse_qs(parsed_url.query)
+    index = query_params.get('index', [None])[0]  
+    print(index)
+    if index is not None:
+        return int(index)
+
+
+def download_YouTube_mp4(video_url, output_path):
     yt = YouTube(video_url, on_progress_callback = on_progress)
     video_stream = yt.streams.get_highest_resolution()
     video_name = yt.title
-    file_path = video_stream.download()
+    output_path = os.path.join(os.getcwd(), output_path)
+    file_path = video_stream.download(output_path=output_path)
     return video_name, file_path
 
 
@@ -59,39 +134,28 @@ def convert_wav_to_text(file_path, output_path):
     final_text = ''.join(chunk_text)
     return final_text
 
-def write_transcript_to_file(text, video_name):
-    with open(os.path.join(video_name + ".txt"), "w") as txt_file:
+
+def write_transcript_to_file(text, video_name, output_path):
+    output_path = os.path.join(os.getcwd(), "txt", output_path) # output text file path
+    with open(os.path.join(output_path, video_name + ".txt"), "w") as txt_file:
         txt_file.write(text)
 
 
-def delete_individual_variables(arr):
-    for a in arr:
-        del a
+def delete_created_files(delete_path):
+    current_directory = os.getcwd()
+    output_wav_dir = os.path.join(current_directory, delete_path, "Wav")
+    output_clips_dir = os.path.join(current_directory, delete_path, "Clips")
+    shutil.rmtree(output_wav_dir)
+    shutil.rmtree(output_clips_dir)
+    
 
-
-def delete_created_files(workspace, output_path):
-    delete_script_path = os.path.join(workspace, 'Delete.py')
-    with open(delete_script_path, "w") as wrfile:
-        wrfile.write('import shutil\n')
-        wrfile.write(f'shutil.rmtree(r"{output_path}")\n')
-        wrfile.write('import os\n')
-        wrfile.write(f'os.remove(r"{delete_script_path}")\n')
-
-    os.system(f'python3 "{delete_script_path}"')
-
-
-def get_transcript_from_youtube_url(video_url='https://www.youtube.com/watch?v=pTB0EiLXUC8'):
+def get_transcript_from_youtube_url():
+    app = App()
+    video_url = app.text
+    response = validate_link(video_url)
     output_path_id = str(uuid.uuid4())
-    output_path = f'.\\{output_path_id}'
-    current_dir = Path.cwd()
-    delete_dir = os.path.join(current_dir, output_path_id)
-    video_name, file_path = download_YouTube_mp4(video_url)
-    wav_file_path = convert_mp4_to_wav(file_path, output_path)
-    text = convert_wav_to_text(wav_file_path, output_path)
-    write_transcript_to_file(text, video_name)
-    delete_individual_variables([file_path, wav_file_path, output_path])
-    delete_created_files(current_dir, delete_dir)
-
-
+    output_path = f'output\\{output_path_id}'
+    response(video_url, output_path, False)
+        
 if __name__ == "__main__":
     get_transcript_from_youtube_url() 

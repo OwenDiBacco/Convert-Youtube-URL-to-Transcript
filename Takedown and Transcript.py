@@ -1,11 +1,13 @@
 import os
 import uuid
+import math
 import shutil
+import Create_Notes_From_AI
 from pytubefix import YouTube
 from pytubefix.cli import on_progress
+import numpy as np
 import tkinter as tk
 import moviepy.editor as mp
-from pathlib import Path
 import speech_recognition as sr
 from pytube import Playlist
 from pydub import AudioSegment
@@ -23,6 +25,10 @@ class App:
 
         self.url_entry = tk.Entry(self.root, width=50, font=("Arial", 12))
         self.url_entry.pack(pady=10)
+
+        self.check_var = tk.IntVar()
+        self.checkbutton = tk.Checkbutton(self.root, text="Check me", variable=self.check_var)
+        self.checkbutton.pack()
 
         submit_button = tk.Button(self.root, text="Submit", font=("Arial", 12), command=self.get_url)
         submit_button.pack(pady=20)
@@ -51,26 +57,33 @@ def validate_link(video_url):
             return process_file
 
 
-def loop_through_playlist(playlist_url, output_path, _):
-    playlist = Playlist(playlist_url) # an array with all the videos from a playlist 
+def loop_through_playlist(playlist_url, output_path):
+    playlists = Playlist(playlist_url) # an array with all the videos from a playlist 
+    # the videos are in order in the playlist array
     def wrapper(video_url): 
-        return process_file(video_url, output_path, True) 
+        index = playlists.index(video_url)
+        return process_file(video_url, output_path, index) 
     
+    # chunking the array to control the concurrency 
+    # tried to chunk array but it doesn't help with anything
     with ThreadPoolExecutor() as executor: # ThreadPoolExecutor provides ways to manage multiple threads concurrently
-        results = list(executor.map(wrapper, playlist)) # creates a list of concurrent threads
+        results = list(executor.map(wrapper, playlists)) # creates a list of concurrent threads
 
 
-def process_file(video_url, output_path, isPlaylist):
-    if isPlaylist:
-        # get the specific index from the playlist
-        # index = find_playlist_index(video_url)
-        pass 
-    
+def process_file(video_url, output_path, index):    
     video_name, file_path = download_YouTube_mp4(video_url, output_path)
     wav_file_path = convert_mp4_to_wav(file_path, output_path)
+    print("wav", wav_file_path)
     text = convert_wav_to_text(wav_file_path, output_path)
-    write_transcript_to_file(text, video_name, output_path)
-    delete_created_files(output_path)
+    write_transcript_to_file(text, video_name, output_path, index)
+    current_directory = os.getcwd()
+    full_wav_path = os.path.join(current_directory, wav_file_path)
+    filename = os.path.splitext(os.path.basename(file_path))[0] # gets the file name without
+    print("filename", filename)
+    current_clips_directory = os.path.join(current_directory, output_path, "clips", filename)
+    print("clips", current_clips_directory)
+    delete_created_files(full_wav_path) # don't delete the entire folder when concurrently processing, instead delete the individual wav file 
+    delete_created_directory(current_clips_directory)
 
 
 def find_playlist_index(playlist_url):
@@ -96,7 +109,7 @@ def convert_mp4_to_wav(file_path, output_path):
     # mp.VideoFileClip.ffmpeg_binary = r"C:\\Users\\CMP_OwDiBacco\\Downloads\\Convert Youtube URL to Transcript\\ffmpeg-7.1-full_build (1)\\ffmpeg-7.1-full_build\\bin\\ffmpeg.exe" # replace with path to ffmpeg.exe after you set it as a path in your enviormental varaibles
     # ffmpeg is not needed ^
     video = mp.VideoFileClip(file_path)
-    output_wav_dir = os.path.join(output_path, "Wav")
+    output_wav_dir = os.path.join(output_path, "wav")
     os.makedirs(output_wav_dir, exist_ok=True)
     output_wav_path = os.path.join(output_wav_dir, filename + '.wav')
     video.audio.write_audiofile(output_wav_path)
@@ -112,7 +125,7 @@ def convert_wav_to_text(file_path, output_path):
         return ""  
 
     recognizer = sr.Recognizer()
-    output_path = os.path.join(output_path, "Clips", filename)
+    output_path = os.path.join(output_path, "clips", filename)
     os.makedirs(output_path, exist_ok=True)
 
     for i, chunk in enumerate(chunks):
@@ -122,7 +135,7 @@ def convert_wav_to_text(file_path, output_path):
         with sr.AudioFile(full_wav_path) as source:
             audio_chunk = recognizer.record(source, duration=4)
             try:
-                text = recognizer.recognize_google(audio_chunk)
+                text = recognizer.recognize_google(audio_chunk) + " "
                 chunk_text.append(text)
             except sr.UnknownValueError:
                 print(f"Chunk {i+1}: No Speech Recognized")
@@ -135,27 +148,110 @@ def convert_wav_to_text(file_path, output_path):
     return final_text
 
 
-def write_transcript_to_file(text, video_name, output_path):
-    output_path = os.path.join(os.getcwd(), "txt", output_path) # output text file path
-    with open(os.path.join(output_path, video_name + ".txt"), "w") as txt_file:
+def write_transcript_to_file(text, video_name, output_path, index):
+    output_path = os.path.join(os.getcwd(),  output_path, "txt") # output text file path
+    os.makedirs(output_path, exist_ok=True)
+    filename = str(index + 1) + ". " + video_name + ".txt"
+    with open(os.path.join(output_path, filename), "w") as txt_file:
         txt_file.write(text)
 
 
-def delete_created_files(delete_path):
-    current_directory = os.getcwd()
-    output_wav_dir = os.path.join(current_directory, delete_path, "Wav")
-    output_clips_dir = os.path.join(current_directory, delete_path, "Clips")
-    shutil.rmtree(output_wav_dir)
-    shutil.rmtree(output_clips_dir)
+def combine_text_files(folder_path, output_file_name): # taken from other application
+    def contains_text_files(directory_path):
+        files = os.listdir(directory_path)
+        for file in files:
+            if file.lower().endswith('.txt'):
+                return True
+
+        return False
+
+    output_file = os.path.join(folder_path, output_file_name + ".txt") 
+    if contains_text_files(folder_path): 
+        recorded = []
+        with open(output_file, 'w') as outfile:  
+            number_of_files = 0
+            for file in os.listdir(folder_path): 
+                if file.endswith('.txt'): 
+                    number_of_files += 1
+
+            file_iterations = -1
+            while len(recorded) < number_of_files -1: 
+                file_iterations += 1
+                if len(str(file_iterations)) < 1: 
+                    file_iterations = "0" + file_iterations
+
+                for filename in os.listdir(folder_path): 
+                    if filename.endswith(".txt") and str(file_iterations) in filename: 
+                        recorded.append(filename) 
+                        file_path = os.path.join(folder_path, filename) 
+                        filename = os.path.splitext(filename)[0]
+                        filename = filename.encode('ascii', 'ignore').decode('ascii') # gets rid of unicode
+                        # some Mosh video titles contain unicode
+                        with open(file_path, 'r') as infile: 
+                            outfile.write(f'Section: {filename}')
+                            outfile.write("\n")
+                            outfile.write("\n")
+                            outfile.write(infile.read())
+                            outfile.write("\n")  
+                            outfile.write("\n")
+
+        return output_file 
     
+    else:
+
+        return None 
+
+
+def write_AI_response(combined_txt_path, output_path):
+    print("writing au")
+    content = ''
+    with open(combined_txt_path, 'r') as file:
+        content = file.read() + " /n" # reads the content from the combined text file
+
+    with open('prompt.txt', 'r') as file: # prompt.txt copied from other program
+        content += file.read()
+
+    response = Create_Notes_From_AI.prompt_genai(content) 
+    print(response)
+    ai_response_folder = os.path.join(os.getcwd, output_path, "ai script") 
+    os.makedirs(ai_response_folder) 
+    ai_response_file = os.path.join(ai_response_folder, "ai script.txt") # defines a variable for the AI generated workseet path
+
+    f = open(ai_response_file, "w") # creates and opens new txt file
+    f.write(response) # writes the AI response to the worksheet
+    f.close()
+
+
+def delete_created_files(delete_path):
+    print("deleting: ", delete_path)
+    os.remove(delete_path)
+    # os.remove(): delete an individual file 
+    # shutil.rmtree(): deletes the root node and all nodes below it
+
+
+def delete_created_directory(delete_path):
+    shutil.rmtree(delete_path)
+
 
 def get_transcript_from_youtube_url():
     app = App()
+    print("checl", app.check_var.get())
     video_url = app.text
     response = validate_link(video_url)
     output_path_id = str(uuid.uuid4())
     output_path = f'output\\{output_path_id}'
-    response(video_url, output_path, False)
-        
+    response(video_url, output_path)
+    wav_directory = os.path.join(os.getcwd(), output_path, "wav")
+    clips_directory = os.path.join(os.getcwd(), output_path, "clips")
+    txt_directory = os.path.join(os.getcwd(), output_path, "txt")
+    delete_created_directory(wav_directory)
+    delete_created_directory(clips_directory)
+    combined_text_file = combine_text_files(txt_directory, "all")
+    
+    if combined_text_file != None and app.check_var.get() == 1: #
+        write_AI_response(combined_text_file, output_path)
+    # breaks at the end of the program; the same thing happened in the other program
+    # somtimes happens and somtimes doesn't
+
 if __name__ == "__main__":
     get_transcript_from_youtube_url() 

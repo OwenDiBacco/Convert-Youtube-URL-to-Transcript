@@ -1,0 +1,1 @@
+Given the attached video transcript, create a textbook like chapter with explanations, examples and real world use cases for the concepts covered

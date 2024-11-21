@@ -1,11 +1,10 @@
+import re
 import os
 import uuid
-import math
 import shutil
 import Create_Notes_From_AI
 from pytubefix import YouTube
 from pytubefix.cli import on_progress
-import numpy as np
 import tkinter as tk
 import moviepy.editor as mp
 import speech_recognition as sr
@@ -57,7 +56,7 @@ def validate_link(video_url):
             return process_file
 
 
-def loop_through_playlist(playlist_url, output_path):
+def loop_through_playlist(playlist_url, output_path, _):
     playlists = Playlist(playlist_url) # an array with all the videos from a playlist 
     # the videos are in order in the playlist array
     def wrapper(video_url): 
@@ -73,15 +72,12 @@ def loop_through_playlist(playlist_url, output_path):
 def process_file(video_url, output_path, index):    
     video_name, file_path = download_YouTube_mp4(video_url, output_path)
     wav_file_path = convert_mp4_to_wav(file_path, output_path)
-    print("wav", wav_file_path)
     text = convert_wav_to_text(wav_file_path, output_path)
     write_transcript_to_file(text, video_name, output_path, index)
     current_directory = os.getcwd()
     full_wav_path = os.path.join(current_directory, wav_file_path)
     filename = os.path.splitext(os.path.basename(file_path))[0] # gets the file name without
-    print("filename", filename)
     current_clips_directory = os.path.join(current_directory, output_path, "clips", filename)
-    print("clips", current_clips_directory)
     delete_created_files(full_wav_path) # don't delete the entire folder when concurrently processing, instead delete the individual wav file 
     delete_created_directory(current_clips_directory)
 
@@ -90,7 +86,6 @@ def find_playlist_index(playlist_url):
     parsed_url = urlparse(playlist_url)
     query_params = parse_qs(parsed_url.query)
     index = query_params.get('index', [None])[0]  
-    print(index)
     if index is not None:
         return int(index)
 
@@ -151,22 +146,29 @@ def convert_wav_to_text(file_path, output_path):
 def write_transcript_to_file(text, video_name, output_path, index):
     output_path = os.path.join(os.getcwd(),  output_path, "txt") # output text file path
     os.makedirs(output_path, exist_ok=True)
-    filename = str(index + 1) + ". " + video_name + ".txt"
+    if index != None:
+        filename = str(index + 1) + ". " + video_name + ".txt"
+
+    else:
+        filename = video_name + ".txt"
+    
+    filename = re.sub(r'[<>:"/\\|?*]', '', filename)  # Replace invalid characters with nothing
     with open(os.path.join(output_path, filename), "w") as txt_file:
         txt_file.write(text)
 
 
 def combine_text_files(folder_path, output_file_name): # taken from other application
     def contains_text_files(directory_path):
+        total_txt_files = 0
         files = os.listdir(directory_path)
         for file in files:
             if file.lower().endswith('.txt'):
-                return True
+                total_txt_files += 1
 
-        return False
+        return total_txt_files
 
     output_file = os.path.join(folder_path, output_file_name + ".txt") 
-    if contains_text_files(folder_path): 
+    if contains_text_files(folder_path) > 1: 
         recorded = []
         with open(output_file, 'w') as outfile:  
             number_of_files = 0
@@ -197,13 +199,18 @@ def combine_text_files(folder_path, output_file_name): # taken from other applic
 
         return output_file 
     
-    else:
+    elif contains_text_files(folder_path) == 1:
+        files = os.listdir(folder_path)
+        for file in files:
+            if file.lower().endswith('.txt'):
+                full_file_path = os.path.join(folder_path, file) 
+                return full_file_path
 
+    else:
         return None 
 
 
 def write_AI_response(combined_txt_path, output_path):
-    print("writing au")
     content = ''
     with open(combined_txt_path, 'r') as file:
         content = file.read() + " /n" # reads the content from the combined text file
@@ -212,8 +219,7 @@ def write_AI_response(combined_txt_path, output_path):
         content += file.read()
 
     response = Create_Notes_From_AI.prompt_genai(content) 
-    print(response)
-    ai_response_folder = os.path.join(os.getcwd, output_path, "ai script") 
+    ai_response_folder = os.path.join(os.getcwd(), output_path, "ai script") 
     os.makedirs(ai_response_folder) 
     ai_response_file = os.path.join(ai_response_folder, "ai script.txt") # defines a variable for the AI generated workseet path
 
@@ -223,7 +229,6 @@ def write_AI_response(combined_txt_path, output_path):
 
 
 def delete_created_files(delete_path):
-    print("deleting: ", delete_path)
     os.remove(delete_path)
     # os.remove(): delete an individual file 
     # shutil.rmtree(): deletes the root node and all nodes below it
@@ -235,21 +240,21 @@ def delete_created_directory(delete_path):
 
 def get_transcript_from_youtube_url():
     app = App()
-    print("checl", app.check_var.get())
     video_url = app.text
     response = validate_link(video_url)
     output_path_id = str(uuid.uuid4())
     output_path = f'output\\{output_path_id}'
-    response(video_url, output_path)
+    response(video_url, output_path, None)
     wav_directory = os.path.join(os.getcwd(), output_path, "wav")
     clips_directory = os.path.join(os.getcwd(), output_path, "clips")
     txt_directory = os.path.join(os.getcwd(), output_path, "txt")
     delete_created_directory(wav_directory)
     delete_created_directory(clips_directory)
-    combined_text_file = combine_text_files(txt_directory, "all")
+    combined_text_file = combine_text_files(txt_directory, "all") # combined text file will be the only txt file if there is only one 
     
-    if combined_text_file != None and app.check_var.get() == 1: #
+    if combined_text_file != None and app.check_var.get() == 1: 
         write_AI_response(combined_text_file, output_path)
+
     # breaks at the end of the program; the same thing happened in the other program
     # somtimes happens and somtimes doesn't
 

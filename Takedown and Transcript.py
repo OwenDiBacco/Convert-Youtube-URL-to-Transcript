@@ -26,7 +26,7 @@ class App:
         self.url_entry.pack(pady=10)
 
         self.check_var = tk.IntVar()
-        self.checkbutton = tk.Checkbutton(self.root, text="Check me", variable=self.check_var)
+        self.checkbutton = tk.Checkbutton(self.root, text="AI Response Generation", variable=self.check_var)
         self.checkbutton.pack()
 
         submit_button = tk.Button(self.root, text="Submit", font=("Arial", 12), command=self.get_url)
@@ -66,7 +66,7 @@ def loop_through_playlist(playlist_url, output_path, _):
     # chunking the array to control the concurrency 
     # tried to chunk array but it doesn't help with anything
     with ThreadPoolExecutor() as executor: # ThreadPoolExecutor provides ways to manage multiple threads concurrently
-        results = list(executor.map(wrapper, playlists)) # creates a list of concurrent threads
+        list(executor.map(wrapper, playlists)) # creates a list of concurrent threads
 
 
 def process_file(video_url, output_path, index):    
@@ -257,6 +257,7 @@ def get_transcript_from_youtube_url():
 
     # breaks at the end of the program; the same thing happened in the other program
     # somtimes happens and somtimes doesn't
+    # ?????
 
 if __name__ == "__main__":
     get_transcript_from_youtube_url() 

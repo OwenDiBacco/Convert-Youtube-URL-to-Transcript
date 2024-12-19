@@ -1,0 +1,8 @@
+pytubefix
+tk
+moviepy
+speechrecognition
+pytube
+pydub
+google-generativeai
+python-dotenv

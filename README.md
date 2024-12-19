@@ -38,7 +38,7 @@ pip install -r requirements.txt
 
 ## Running-The-Application
 
-1. run the _ module
+1. run the Takedown and Transcript.pu module
 2. paste a link to either a YouTube video or playlist in the text box
 3. optionally, select the check box that will allow you to create an AI-generated worksheet representing the material
 

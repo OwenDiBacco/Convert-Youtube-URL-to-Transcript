@@ -91,7 +91,7 @@ def find_playlist_index(playlist_url):
 
 
 def download_YouTube_mp4(video_url, output_path):
-    yt = YouTube(video_url, on_progress_callback = on_progress)
+    yt = YouTube(video_url, on_progress_callback = on_progress, use_po_token=True)
     video_stream = yt.streams.get_highest_resolution()
     video_name = yt.title
     output_path = os.path.join(os.getcwd(), output_path)

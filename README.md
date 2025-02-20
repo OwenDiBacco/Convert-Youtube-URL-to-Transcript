@@ -34,7 +34,23 @@ pip install -r requirements.txt
    c). select the Google Cloud Console project you would like this key associated with<br>
    d). then select 'create api key in existing project'<br>
    e). copy this key now; this is the only time you'll be able to access it<br>
-   d). create a file named '.env,' declare a variable named 'API_KEY' and store your API key value here. This creates an environemnt variable named 'API KEY'<br>
+   d). create a file named '.env,' declare a variable named 'API_KEY' and store your API key value here. This creates an environement variable named 'API KEY'<br>
+
+4. Obtain poToken and visitorData (2/20/2025 Bot Detection Bypass Solution)
+
+A Proof-of-Origin Token, or a PO Token, is a token required by YouTube, that acts as an identifier and is to be passed along with a request in conjunction with the visitor data, which allows authorization for guest users. 
+
+  a). Go into an incognito / guest tab in your web provider<br>
+  b). Click this YouTube Embedded link: https://www.youtube.com/embed/aqz-KE-bpKQ<br>
+  c). Filter by: v1/player<br>
+  d). Click the video and check the network tab<br>
+  e). In the request payload, find the Po Token at the poToken key<br>
+        This key will be located under the serviceIntegrityDimensions element<br>
+  f). Find the visitorData key and save the value<br>
+        This will be located under: context => tvAppInfo<br>
+  g). When the application is first run, you will be prompted to enter both these keys<br>
+        Note: you will only be prompted to enter this information once<br>
+
 
 ## Running-The-Application
 
@@ -44,7 +60,7 @@ pip install -r requirements.txt
 
 ## How-The-Application-Works
 
-1. The validate_link() function first makes sure the user input a valid https link. Then the function determines whether the link directs you to a YouTube video or a YouTube playlist and returns the function that correcponds to either.<br>
+1. The validate_link() function first makes sure the user input a valid https link. Then the function determines whether the link directs you to a YouTube video or a YouTube playlist and returns the function that corresponds to either.<br>
 2. The loop_through_playlist() function creates a thread for each video in the playlist and passes each video into the process_file() function.<br>
 3. The process_file() function first downloads the video as an mp4 file, which is then converted to a wav file, to be transcripted and written to a text file.<br>
 4. Once all the videos are processed, a text file which contains the transcrpts of each created text file is used in the prompt to the AI service.<br>
